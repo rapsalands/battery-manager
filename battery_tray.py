@@ -110,8 +110,9 @@ def battery_icon(state: dict) -> str:
     """Pick a colored tray icon that conveys current state at a glance.
 
     Custom full-color SVGs shipped in ./icons/ (no -symbolic suffix so
-    GTK keeps the colors instead of theme-painting them). Capacity is
-    shown as the text label next to the icon, not encoded in the icon."""
+    GTK keeps the colors instead of theme-painting them). Discharging
+    has per-capacity variants so the icon's visible fill matches the
+    real battery level; charging and holding are solid silhouettes."""
     if not state.get("enabled"):
         return "battery-manager-disabled"
     status = state.get("status", "")
@@ -119,7 +120,9 @@ def battery_icon(state: dict) -> str:
         return "battery-manager-charging"
     if status in ("Not charging", "Full"):
         return "battery-manager-holding"
-    return "battery-manager-discharging"
+    cap = state.get("capacity") or 0
+    level = max(0, min(100, round(cap / 10) * 10))
+    return f"battery-manager-discharging-{level}"
 
 
 def status_text(state: dict) -> str:
