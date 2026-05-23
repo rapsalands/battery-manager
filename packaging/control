@@ -1,9 +1,9 @@
 Package: battery-manager
-Version: 0.1.0
+Version: 0.1.1
 Section: utils
 Priority: optional
 Architecture: all
-Depends: python3 (>= 3.11), python3-gi, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, systemd, policykit-1
+Depends: python3 (>= 3.11), python3-gi, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, systemd, polkitd | policykit-1
 Maintainer: Sandeep Singh <mailme.sandeepsingh@gmail.com>
 Homepage: https://github.com/rapsalands/battery-manager
 Description: Battery charge cycle manager for ASUS laptops on Linux
