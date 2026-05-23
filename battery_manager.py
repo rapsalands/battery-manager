@@ -84,13 +84,31 @@ def load_phase(capacity: int, low: int, high: int) -> str:
             data = json.loads(STATE_FILE.read_text())
             if data.get("phase") in (PHASE_DRAIN, PHASE_CHARGE):
                 return data["phase"]
+            log.warning(
+                "state file present but phase missing/invalid (%r); "
+                "falling back to default", data,
+            )
         except Exception:
-            log.exception("could not read state file, defaulting from capacity")
-    return PHASE_DRAIN if capacity >= high else PHASE_CHARGE
+            log.exception("could not read state file; falling back to default")
+    else:
+        log.warning("state file missing; falling back to default phase")
+    # Safer default: at or above HIGH we're clearly in drain phase;
+    # at or below LOW we're clearly in charge phase; in between, default
+    # to DRAIN rather than CHARGE so a lost state file doesn't silently
+    # cause unexpected charging.
+    if capacity >= high:
+        return PHASE_DRAIN
+    if capacity <= low:
+        return PHASE_CHARGE
+    return PHASE_DRAIN
 
 
 def save_phase(phase: str) -> None:
-    STATE_FILE.write_text(json.dumps({"phase": phase}) + "\n")
+    # Atomic: write to a temp file then rename, so a kill mid-write
+    # cannot leave a zero-byte state file behind.
+    tmp = STATE_FILE.with_suffix(STATE_FILE.suffix + ".tmp")
+    tmp.write_text(json.dumps({"phase": phase}) + "\n")
+    tmp.replace(STATE_FILE)
 
 
 def read_int(path: Path) -> int:
