@@ -139,20 +139,36 @@ def tick(paths: dict, cfg: dict, last: dict) -> None:
         log.info(
             "status %s -> %s (cap=%d%%)", last["status"], status, capacity,
         )
+        # Suppress notifications for the firmware's trickle cycle at
+        # the cap (Not-charging -> Charging -> Not-charging every
+        # minute or two, with capacity barely moving). Only notify on
+        # transitions a user actually cares about:
+        #   - real unplug (anything -> Discharging)
+        #   - real plug-in (Discharging -> Charging) OR charge starting
+        #     from clearly below the cap (>= 5% below)
+        #   - charging finished after gaining >= 3% (a real session,
+        #     not a 1% top-up)
         if status == "Charging" and last["status"] != "Charging":
-            notify(
-                cfg["notify_user"],
-                f"Battery {capacity}% — charging",
-                f"Plugged in. Will stop at {cfg['high']}%.",
-                icon="battery-good-charging",
-            )
+            from_discharging = last["status"] == "Discharging"
+            clearly_below_cap = capacity <= cfg["high"] - 5
+            if from_discharging or clearly_below_cap:
+                notify(
+                    cfg["notify_user"],
+                    f"Battery {capacity}% — charging",
+                    f"Plugged in. Will stop at {cfg['high']}%.",
+                    icon="battery-good-charging",
+                )
+            last["charge_start_cap"] = capacity
         elif status == "Not charging" and last["status"] == "Charging":
-            notify(
-                cfg["notify_user"],
-                f"Battery {capacity}% — charging stopped",
-                f"Reached cap (set to {cfg['high']}%). Plugged in; paused to preserve battery health.",
-                icon="battery-full",
-            )
+            start = last.get("charge_start_cap")
+            if start is not None and capacity - start >= 3:
+                notify(
+                    cfg["notify_user"],
+                    f"Battery {capacity}% — charging stopped",
+                    f"Reached cap (set to {cfg['high']}%). Plugged in; paused to preserve battery health.",
+                    icon="battery-full",
+                )
+            last["charge_start_cap"] = None
         elif status == "Discharging" and last["status"] != "Discharging":
             notify(
                 cfg["notify_user"],
@@ -160,6 +176,7 @@ def tick(paths: dict, cfg: dict, last: dict) -> None:
                 f"Will recharge to {cfg['high']}% on plug-in.",
                 icon="battery-good",
             )
+            last["charge_start_cap"] = None
         last["status"] = status
 
 
@@ -200,7 +217,7 @@ def main() -> int:
     # at the target value.
     write_threshold(paths, effective_threshold(cfg["high"]), capacity, status)
 
-    last = {"status": status}
+    last = {"status": status, "charge_start_cap": None}
     while True:
         try:
             tick(paths, cfg, last)
