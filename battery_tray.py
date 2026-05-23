@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """System tray indicator for battery-manager.
 
-Reads state from the daemon's files (state.json, config.toml) and sysfs,
-displays current capacity + status, and provides a Settings dialog for
-adjusting the charge cap and toggling the daemon on/off.
+Reads battery state from sysfs and the daemon's config.toml, displays
+capacity + status with a colored battery icon, and provides a Settings
+dialog for adjusting the charge cap and toggling the daemon on/off.
 
 Service control (start/stop/restart) requires a polkit rule to allow
 the current user to manage battery-manager.service without a password
 prompt; installed by install.sh.
 """
-import json
 import re
 import subprocess
 import sys
@@ -23,7 +22,6 @@ from gi.repository import Gtk, GLib, AyatanaAppIndicator3 as AppIndicator3
 
 HERE = Path(__file__).resolve().parent
 CONFIG_FILE = HERE / "config.toml"
-STATE_FILE = HERE / "state.json"
 ICONS_DIR = HERE / "icons"
 SERVICE_NAME = "battery-manager.service"
 POLL_MS = 2000
