@@ -95,16 +95,44 @@ def notify(user: str, title: str, body: str, icon: str = "battery") -> None:
         log.debug("notify failed", exc_info=True)
 
 
+def effective_threshold(high: int) -> int:
+    """Firmware stops charging slightly before the written threshold
+    (battery tops out at ~threshold - 0.5%). Add 1 so the user-visible
+    cap of `high` actually shows `high`% on the indicator."""
+    return min(100, high + 1)
+
+
+def write_threshold(paths: dict, target: int, capacity: int, status: str) -> None:
+    """Write target to charge_control_end_threshold, with a firmware
+    'kick' first if we need charging to resume from a stopped state.
+
+    ASUS firmware latches into a stopped state after hitting a cap,
+    and will not resume charging just because we raise the threshold
+    above the current capacity. Writing 100 (no cap), waiting for the
+    firmware to react and start charging, then writing the real target
+    is what actually gets it moving again."""
+    if capacity < target and status != "Charging":
+        paths["threshold"].write_text("100\n")
+        # Wait for firmware to actually start charging before clamping
+        # back down to the target. Poll status up to ~3s.
+        for _ in range(15):
+            time.sleep(0.2)
+            if read_str(paths["status"]) == "Charging":
+                break
+    paths["threshold"].write_text(f"{target}\n")
+
+
 def tick(paths: dict, cfg: dict, last: dict) -> None:
     capacity = read_int(paths["capacity"])
     threshold = read_int(paths["threshold"])
     status = read_str(paths["status"])
+    target = effective_threshold(cfg["high"])
 
-    if threshold != cfg["high"]:
-        paths["threshold"].write_text(f"{cfg['high']}\n")
+    if threshold != target:
+        write_threshold(paths, target, capacity, status)
         log.info(
-            "cap=%d%% status=%s threshold %d -> %d",
-            capacity, status, threshold, cfg["high"],
+            "cap=%d%% status=%s threshold %d -> %d (cap setting %d%%)",
+            capacity, status, threshold, target, cfg["high"],
         )
 
     if status != last["status"]:
@@ -114,22 +142,22 @@ def tick(paths: dict, cfg: dict, last: dict) -> None:
         if status == "Charging" and last["status"] != "Charging":
             notify(
                 cfg["notify_user"],
-                f"Battery charging to {cfg['high']}%",
-                f"At {capacity}%. Will stop at {cfg['high']}%.",
+                f"Battery {capacity}% — charging",
+                f"Plugged in. Will stop at {cfg['high']}%.",
                 icon="battery-good-charging",
             )
         elif status == "Not charging" and last["status"] == "Charging":
             notify(
                 cfg["notify_user"],
-                f"Battery reached cap ({cfg['high']}%)",
-                "Plugged in. Charging stopped to preserve battery health.",
+                f"Battery {capacity}% — charging stopped",
+                f"Reached cap (set to {cfg['high']}%). Plugged in; paused to preserve battery health.",
                 icon="battery-full",
             )
         elif status == "Discharging" and last["status"] != "Discharging":
             notify(
                 cfg["notify_user"],
-                "On battery",
-                f"At {capacity}%. Will recharge to {cfg['high']}% on plug-in.",
+                f"Battery {capacity}% — on battery",
+                f"Will recharge to {cfg['high']}% on plug-in.",
                 icon="battery-good",
             )
         last["status"] = status
@@ -165,6 +193,12 @@ def main() -> int:
         f"Capping charge at {cfg['high']}%. Currently {capacity}% ({status}).",
         icon="battery",
     )
+
+    # Always assert threshold on startup (with kick if firmware is
+    # stopped but should be charging) so a fresh service restart
+    # always reaches the configured cap, even if state was already
+    # at the target value.
+    write_threshold(paths, effective_threshold(cfg["high"]), capacity, status)
 
     last = {"status": status}
     while True:
