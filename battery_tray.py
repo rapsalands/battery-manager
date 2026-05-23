@@ -24,6 +24,7 @@ from gi.repository import Gtk, GLib, AyatanaAppIndicator3 as AppIndicator3
 HERE = Path(__file__).resolve().parent
 CONFIG_FILE = HERE / "config.toml"
 STATE_FILE = HERE / "state.json"
+ICONS_DIR = HERE / "icons"
 SERVICE_NAME = "battery-manager.service"
 POLL_MS = 2000
 APP_ID = "battery-manager-tray"
@@ -118,8 +119,13 @@ def read_state() -> dict:
 
 
 def battery_icon(state: dict) -> str:
-    """Pick a standard battery-level icon that fills proportionally with
-    capacity, matching the look of the (now hidden) system battery."""
+    """Pick a tray icon that conveys the current state at a glance.
+
+    For "Not charging" (AC connected but daemon holding the threshold)
+    we ship a custom icon — battery + pause badge — because the
+    standard battery-level-N-plugged-in-symbolic looks too much like
+    charging at small sizes. For other states the standard
+    freedesktop battery-level-N icons are used."""
     cap = state.get("capacity")
     if cap is None:
         return "battery-missing-symbolic"
@@ -130,7 +136,7 @@ def battery_icon(state: dict) -> str:
     if status == "Charging":
         return f"battery-level-{level}-charging-symbolic"
     if status == "Not charging":
-        return f"battery-level-{level}-plugged-in-symbolic"
+        return f"battery-manager-holding-{level}-symbolic"
     return f"battery-level-{level}-symbolic"
 
 
@@ -178,6 +184,10 @@ class TrayApp:
             "battery-level-80-symbolic",
             AppIndicator3.IndicatorCategory.HARDWARE,
         )
+        if ICONS_DIR.is_dir():
+            # Tells GTK to look here for our custom holding icons in
+            # addition to the system theme.
+            self.indicator.set_icon_theme_path(str(ICONS_DIR))
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         self._build_menu()
         self.refresh()

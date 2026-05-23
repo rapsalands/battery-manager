@@ -36,6 +36,13 @@ install -m 644 \
 chmod 755 "$STAGE/opt/battery-manager/battery_manager.py"
 chmod 755 "$STAGE/opt/battery-manager/battery_tray.py"
 
+# Ship the custom holding icons (used by the tray for the "AC connected
+# but daemon is holding charge" state).
+if [ -d "$DIR/icons" ]; then
+    mkdir -p "$STAGE/opt/battery-manager/icons"
+    install -m 644 "$DIR/icons/"*.svg "$STAGE/opt/battery-manager/icons/"
+fi
+
 # DEBIAN control files
 install -m 644 "$DIR/$PKG/control"   "$STAGE/DEBIAN/control"
 install -m 644 "$DIR/$PKG/conffiles" "$STAGE/DEBIAN/conffiles"

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+  <!-- battery cap -->
+  <rect x="5.5" y="0.5" width="3" height="1.5" rx="0.3"/>
+  <!-- battery body outline -->
+  <rect x="2" y="2" width="10" height="13" rx="1.4" fill="none" stroke="currentColor" stroke-width="1"/>
+  <!-- fill proportional to capacity (40%) -->
+  <rect x="3" y="9.6" width="8" height="4.4" rx="0.4"/>
+  <!-- pause badge bottom-right: outlined circle + two bars -->
+  <circle cx="12.5" cy="12.5" r="3" fill="none" stroke="currentColor" stroke-width="1"/>
+  <rect x="11.1" y="10.8" width="0.9" height="3.4" rx="0.25" fill="currentColor"/>
+  <rect x="13.0" y="10.8" width="0.9" height="3.4" rx="0.25" fill="currentColor"/>
+</svg>
