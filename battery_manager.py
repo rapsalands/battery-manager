@@ -128,6 +128,29 @@ def tick(paths: dict, cfg: dict, last: dict) -> None:
     status = read_str(paths["status"])
     target = effective_threshold(cfg["high"])
 
+    # Bug observed in the wild: firmware sometimes keeps charging
+    # *past* the threshold once a charging session is mid-flight (e.g.
+    # plug in at 48%, charge through 80% and keep going to 83%+).
+    # The "set threshold below current capacity = stop charging" trick
+    # works to halt this. Write threshold ~6 below capacity to force a
+    # stop, then restore target on the next iteration.
+    if status == "Charging" and capacity > cfg["high"]:
+        force_stop = max(40, capacity - 6)
+        log.warning(
+            "charging past cap: cap=%d%% high=%d%% threshold=%d, "
+            "forcing stop with threshold=%d",
+            capacity, cfg["high"], threshold, force_stop,
+        )
+        paths["threshold"].write_text(f"{force_stop}\n")
+        time.sleep(1.5)
+        # Read back to see if it actually stopped
+        new_status = read_str(paths["status"])
+        if new_status != "Charging":
+            log.info("force-stop worked: status now %s", new_status)
+        else:
+            log.warning("force-stop did not stop charging; firmware may need a kick")
+        # Continue to the normal write below, which restores target=high+1.
+
     if threshold != target:
         write_threshold(paths, target, capacity, status)
         log.info(

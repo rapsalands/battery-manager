@@ -8,8 +8,9 @@
 high = 80
 
 # How often to poll the battery state, in seconds. Lower = faster
-# reaction when the firmware resets the threshold (e.g., on AC events).
-poll_seconds = 30
+# reaction when firmware resets the threshold or keeps charging past
+# the cap mid-session.
+poll_seconds = 15
 
 # Which battery to manage (under /sys/class/power_supply/).
 # Leave empty to auto-detect the first BAT* with a writable threshold.
