@@ -1,0 +1,14 @@
+[Unit]
+Description=Battery charge cycle manager
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=__DIR__/venv/bin/python __DIR__/battery_manager.py
+Restart=on-failure
+RestartSec=10s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

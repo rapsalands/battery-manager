@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Battery Manager Tray
+Comment=System tray indicator for battery-manager daemon
+Exec=__DIR__/venv/bin/python __DIR__/battery_tray.py
+Icon=battery
+X-GNOME-Autostart-enabled=true
+NoDisplay=false
+Categories=System;

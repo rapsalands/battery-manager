@@ -1,0 +1,33 @@
+#!/bin/sh
+set -e
+
+DIR=/opt/battery-manager
+SERVICE_DST=/etc/systemd/system/battery-manager.service
+POLKIT_DST=/etc/polkit-1/rules.d/50-battery-manager.rules
+AUTOSTART_DST=/etc/xdg/autostart/battery-manager-tray.desktop
+
+case "$1" in
+    configure)
+        # Render service file from template
+        sed "s|__DIR__|$DIR|g" \
+            "$DIR/battery-manager.service" > "$SERVICE_DST"
+
+        # Render polkit rule: allow any active local user to manage the service
+        sed 's|__SUBJECT_MATCH__|subject.active \&\& subject.local|g' \
+            "$DIR/battery-manager.polkit.rules" > "$POLKIT_DST"
+
+        # Render autostart entry (system-wide; runs as each logged-in user)
+        sed "s|__DIR__|$DIR|g" \
+            "$DIR/battery-manager-tray.desktop" > "$AUTOSTART_DST"
+
+        # The tray writes config.toml on Apply; make it user-writable.
+        chmod 666 "$DIR/config.toml" || true
+
+        # Activate
+        systemctl daemon-reload || true
+        systemctl enable battery-manager.service || true
+        systemctl start battery-manager.service || true
+        ;;
+esac
+
+exit 0

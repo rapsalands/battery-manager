@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local venv
+venv/
+
+# Runtime state written by the daemon
+state.json
+
+# Stray output from background launches
+nohup.out
+
+# Build artifacts (.deb packaging)
+build/
+dist/
+*.deb
+debian/.debhelper/
+debian/files
+debian/*.substvars
+debian/battery-manager/

@@ -1,0 +1,18 @@
+Package: battery-manager
+Version: 0.1.0
+Section: utils
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.11), python3-gi, gir1.2-gtk-3.0, gir1.2-ayatanaappindicator3-0.1, systemd, policykit-1
+Maintainer: Sandeep Singh <mailme.sandeepsingh@gmail.com>
+Homepage: https://github.com/rapsalands/battery-manager
+Description: Battery charge cycle manager for ASUS laptops on Linux
+ Cycles the laptop battery between configurable low and high percentages
+ by dynamically managing charge_control_end_threshold. Works around the
+ ASUS firmware quirk of silently ignoring threshold values that sit too
+ far below the current capacity, and self-corrects when the firmware
+ resets the threshold on AC events.
+ .
+ Ships with a GTK 3 / AppIndicator tray applet that shows the current
+ capacity, phase, and threshold, lets you toggle the daemon on/off, and
+ exposes a small settings dialog for adjusting the low / high values.

@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        systemctl stop battery-manager.service 2>/dev/null || true
+        systemctl disable battery-manager.service 2>/dev/null || true
+        # Kill any running tray instances across users
+        pkill -f "battery_tray.py" 2>/dev/null || true
+        ;;
+esac
+
+exit 0

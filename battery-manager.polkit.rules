@@ -1,0 +1,12 @@
+// Allow the configured subject to start/stop/restart battery-manager.service
+// without a password prompt. The __SUBJECT_MATCH__ placeholder is filled at
+// install time:
+//   source install: subject.user == "USER"
+//   .deb install:   subject.active && subject.local
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        action.lookup("unit") == "battery-manager.service" &&
+        (__SUBJECT_MATCH__)) {
+        return polkit.Result.YES;
+    }
+});

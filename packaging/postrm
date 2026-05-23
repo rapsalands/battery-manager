@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+SERVICE_DST=/etc/systemd/system/battery-manager.service
+POLKIT_DST=/etc/polkit-1/rules.d/50-battery-manager.rules
+AUTOSTART_DST=/etc/xdg/autostart/battery-manager-tray.desktop
+
+case "$1" in
+    remove|purge)
+        rm -f "$SERVICE_DST" "$POLKIT_DST" "$AUTOSTART_DST"
+        systemctl daemon-reload 2>/dev/null || true
+
+        # Reset battery threshold to 100 on the first compatible battery.
+        for bat in /sys/class/power_supply/BAT*; do
+            f="$bat/charge_control_end_threshold"
+            if [ -w "$f" ]; then
+                echo 100 > "$f" 2>/dev/null || true
+                break
+            fi
+        done
+        ;;
+esac
+
+exit 0
