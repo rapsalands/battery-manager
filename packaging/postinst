@@ -28,15 +28,14 @@ case "$1" in
         systemctl enable battery-manager.service || true
         systemctl start battery-manager.service || true
 
-        # Relaunch the tray for each active local user so an upgrade
-        # picks up new code immediately without needing a log-out.
-        # prerm already killed the old tray process; this is the
-        # corresponding restart.
+        # Relaunch the tray for each logged-in (non-root) user so an
+        # install/upgrade picks up new code immediately without
+        # needing a log-out. prerm already killed the old tray process.
         loginctl list-sessions --no-legend 2>/dev/null \
-        | awk '$NF=="seat0" || $NF=="" {print $3}' | sort -u \
+        | awk '$3 != "" && $3 != "root" {print $3}' | sort -u \
         | while read -r user; do
-            [ -z "$user" ] && continue
             uid=$(id -u "$user" 2>/dev/null) || continue
+            [ -S "/run/user/$uid/bus" ] || continue
             runuser -u "$user" -- env \
                 DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
                 setsid -f /usr/bin/python3 "$DIR/battery_tray.py" \
