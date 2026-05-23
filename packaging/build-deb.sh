@@ -36,12 +36,16 @@ install -m 644 \
 chmod 755 "$STAGE/opt/battery-manager/battery_manager.py"
 chmod 755 "$STAGE/opt/battery-manager/battery_tray.py"
 
-# Ship the custom holding icons (used by the tray for the "AC connected
-# but daemon is holding charge" state).
-if [ -d "$DIR/icons" ]; then
-    mkdir -p "$STAGE/opt/battery-manager/icons"
-    install -m 644 "$DIR/icons/"*.svg "$STAGE/opt/battery-manager/icons/"
+# Ship the custom state icons (charging/holding/discharging/disabled).
+# Hard fail if missing — earlier versions silently shipped without
+# icons when the SVGs weren't present.
+if ! ls "$DIR/icons/"*.svg >/dev/null 2>&1; then
+    echo "ERROR: no icons found at $DIR/icons/*.svg" >&2
+    echo "Run ./scripts/generate-icons.py first." >&2
+    exit 1
 fi
+mkdir -p "$STAGE/opt/battery-manager/icons"
+install -m 644 "$DIR/icons/"*.svg "$STAGE/opt/battery-manager/icons/"
 
 # DEBIAN control files
 install -m 644 "$DIR/$PKG/control"   "$STAGE/DEBIAN/control"
