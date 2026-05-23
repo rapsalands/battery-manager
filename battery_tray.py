@@ -134,6 +134,43 @@ def battery_icon(state: dict) -> str:
     return f"battery-level-{level}-symbolic"
 
 
+def status_text(state: dict) -> str:
+    """Plain-English summary of what the daemon is doing right now —
+    no jargon ("phase", "threshold"); written to be understandable
+    without reading docs or running commands."""
+    if not state.get("enabled"):
+        return (
+            "Battery manager disabled\n"
+            "Laptop will charge normally up to 100%."
+        )
+    cap = state.get("capacity")
+    if cap is None:
+        return "Battery not detected"
+    status = state.get("status", "")
+    low, high = state["low"], state["high"]
+
+    if status == "Charging":
+        return (
+            f"Battery {cap}%  —  charging\n"
+            f"Plugged in. Will stop at {high}%, then\n"
+            f"hold until it drops to {low}%."
+        )
+    if status == "Not charging":
+        return (
+            f"Battery {cap}%  —  plugged in, not charging\n"
+            f"Holding between {low}% and {high}%.\n"
+            f"Will recharge when it drops to {low}%."
+        )
+    if status == "Discharging":
+        return (
+            f"Battery {cap}%  —  on battery\n"
+            f"Plug in to cycle between {low}% and {high}%."
+        )
+    if status == "Full":
+        return f"Battery {cap}%  —  full"
+    return f"Battery {cap}%  —  {status}"
+
+
 class TrayApp:
     def __init__(self) -> None:
         self.indicator = AppIndicator3.Indicator.new(
@@ -179,19 +216,7 @@ class TrayApp:
         self.indicator.set_label(label, "100%")
         self.indicator.set_icon_full(battery_icon(s), "battery")
 
-        if s["capacity"] is None:
-            status_text = "Battery not found"
-        elif not s["enabled"]:
-            status_text = (
-                f"Battery {s['capacity']}%  (daemon disabled)\n"
-                f"Range {s['low']}–{s['high']}"
-            )
-        else:
-            status_text = (
-                f"Battery {s['capacity']}%  —  {s['phase']} phase\n"
-                f"Threshold {s['threshold']}   Range {s['low']}–{s['high']}"
-            )
-        self.status_item.set_label(status_text)
+        self.status_item.set_label(status_text(s))
 
         self.toggle_item.handler_block(self.toggle_handler)
         self.toggle_item.set_active(s["enabled"])
