@@ -1,26 +1,21 @@
 # battery-manager config.
 # Edit and then: sudo systemctl restart battery-manager.service
 
-# Resume charging when battery falls to or below this percent.
-low = 20
-
-# Stop charging when battery reaches or exceeds this percent.
+# Charge cap. Battery will charge up to this percent when plugged in,
+# then hold there. Lower = better for battery longevity but less usable
+# capacity available when you unplug. 80 is the industry-standard sweet
+# spot; 60 is more aggressive.
 high = 80
 
 # How often to poll the battery state, in seconds. Lower = faster
-# reaction when the firmware resets the threshold (e.g., AC plug).
-poll_seconds = 20
-
-# During the "drain" phase we keep the threshold this many points below
-# the current capacity, because ASUS firmware silently ignores threshold
-# values that are too far below capacity. 10 is a safe default; raise
-# it (e.g., 15) if you see any trickle current during drain.
-drain_delta = 10
+# reaction when the firmware resets the threshold (e.g., on AC events).
+poll_seconds = 30
 
 # Which battery to manage (under /sys/class/power_supply/).
 # Leave empty to auto-detect the first BAT* with a writable threshold.
 battery = ""
 
-# Send desktop notifications to this Linux user on phase changes.
-# Set by install.sh to the user who ran it. Leave empty to disable.
+# Send desktop notifications to this Linux user on state transitions
+# (charging started / cap reached / now on battery). Set by install.sh
+# to the user who ran it. Leave empty to disable.
 notify_user = "sandeep"

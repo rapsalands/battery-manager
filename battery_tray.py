@@ -2,8 +2,8 @@
 """System tray indicator for battery-manager.
 
 Reads state from the daemon's files (state.json, config.toml) and sysfs,
-displays current capacity + phase, and provides a Settings dialog for
-adjusting low/high thresholds and toggling the daemon on/off.
+displays current capacity + status, and provides a Settings dialog for
+adjusting the charge cap and toggling the daemon on/off.
 
 Service control (start/stop/restart) requires a polkit rule to allow
 the current user to manage battery-manager.service without a password
@@ -39,7 +39,7 @@ def detect_battery() -> str:
 
 
 def load_config() -> dict:
-    cfg = {"low": 20, "high": 80, "battery": ""}
+    cfg = {"high": 80, "battery": ""}
     if CONFIG_FILE.exists():
         with CONFIG_FILE.open("rb") as f:
             cfg.update(tomllib.load(f))
@@ -90,22 +90,12 @@ def read_state() -> dict:
     battery_dir = Path("/sys/class/power_supply") / battery if battery else None
 
     state = {
-        "low": cfg.get("low", 20),
         "high": cfg.get("high", 80),
-        "drain_delta": cfg.get("drain_delta", 10),
-        "phase": "unknown",
         "capacity": None,
         "threshold": None,
         "status": None,
         "enabled": is_service_active(),
     }
-    if STATE_FILE.exists():
-        try:
-            state["phase"] = json.loads(STATE_FILE.read_text()).get(
-                "phase", "unknown"
-            )
-        except Exception:
-            pass
     if battery_dir is not None:
         try:
             state["capacity"] = int((battery_dir / "capacity").read_text().strip())
@@ -119,31 +109,23 @@ def read_state() -> dict:
 
 
 def battery_icon(state: dict) -> str:
-    """Pick a tray icon that conveys the current state at a glance.
+    """Pick a colored tray icon that conveys current state at a glance.
 
-    For "Not charging" (AC connected but daemon holding the threshold)
-    we ship a custom icon — battery + pause badge — because the
-    standard battery-level-N-plugged-in-symbolic looks too much like
-    charging at small sizes. For other states the standard
-    freedesktop battery-level-N icons are used."""
-    cap = state.get("capacity")
-    if cap is None:
-        return "battery-missing-symbolic"
+    Custom full-color SVGs shipped in ./icons/ (no -symbolic suffix so
+    GTK keeps the colors instead of theme-painting them). Capacity is
+    shown as the text label next to the icon, not encoded in the icon."""
+    if not state.get("enabled"):
+        return "battery-manager-disabled"
     status = state.get("status", "")
-    level = max(0, min(100, round(cap / 10) * 10))
-    if status == "Full":
-        return "battery-level-100-charged-symbolic"
     if status == "Charging":
-        return f"battery-level-{level}-charging-symbolic"
-    if status == "Not charging":
-        return f"battery-manager-holding-{level}-symbolic"
-    return f"battery-level-{level}-symbolic"
+        return "battery-manager-charging"
+    if status in ("Not charging", "Full"):
+        return "battery-manager-holding"
+    return "battery-manager-discharging"
 
 
 def status_text(state: dict) -> str:
-    """Plain-English summary of what the daemon is doing right now —
-    no jargon ("phase", "threshold"); written to be understandable
-    without reading docs or running commands."""
+    """Plain-English summary of what the daemon is doing right now."""
     if not state.get("enabled"):
         return (
             "Battery manager disabled\n"
@@ -153,27 +135,23 @@ def status_text(state: dict) -> str:
     if cap is None:
         return "Battery not detected"
     status = state.get("status", "")
-    low, high = state["low"], state["high"]
+    high = state["high"]
 
     if status == "Charging":
         return (
             f"Battery {cap}%  —  charging\n"
-            f"Plugged in. Will stop at {high}%, then\n"
-            f"hold until it drops to {low}%."
+            f"Plugged in. Will stop at {high}%."
         )
-    if status == "Not charging":
+    if status in ("Not charging", "Full"):
         return (
-            f"Battery {cap}%  —  plugged in, not charging\n"
-            f"Holding between {low}% and {high}%.\n"
-            f"Will recharge when it drops to {low}%."
+            f"Battery {cap}%  —  capped at {high}%\n"
+            f"Plugged in. Charging stopped to preserve battery."
         )
     if status == "Discharging":
         return (
             f"Battery {cap}%  —  on battery\n"
-            f"Plug in to cycle between {low}% and {high}%."
+            f"Plug in to recharge to {high}%."
         )
-    if status == "Full":
-        return f"Battery {cap}%  —  full"
     return f"Battery {cap}%  —  {status}"
 
 
@@ -181,11 +159,11 @@ class TrayApp:
     def __init__(self) -> None:
         self.indicator = AppIndicator3.Indicator.new(
             APP_ID,
-            "battery-level-80-symbolic",
+            "battery-manager-discharging",
             AppIndicator3.IndicatorCategory.HARDWARE,
         )
         if ICONS_DIR.is_dir():
-            # Tells GTK to look here for our custom holding icons in
+            # Tells GTK to look here for our custom colored icons in
             # addition to the system theme.
             self.indicator.set_icon_theme_path(str(ICONS_DIR))
         self.indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
@@ -259,19 +237,20 @@ class TrayApp:
         box.set_margin_start(18)
         box.set_margin_end(18)
 
-        low_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        low_row.pack_start(Gtk.Label(label="Low threshold:", xalign=0), True, True, 0)
-        low_spin = Gtk.SpinButton.new_with_range(1, 99, 1)
-        low_spin.set_value(s["low"])
-        low_row.pack_start(low_spin, False, False, 0)
-        box.add(low_row)
-
         high_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        high_row.pack_start(Gtk.Label(label="High threshold:", xalign=0), True, True, 0)
-        high_spin = Gtk.SpinButton.new_with_range(2, 100, 1)
+        high_row.pack_start(Gtk.Label(label="Charge cap:", xalign=0), True, True, 0)
+        high_spin = Gtk.SpinButton.new_with_range(40, 100, 1)
         high_spin.set_value(s["high"])
         high_row.pack_start(high_spin, False, False, 0)
         box.add(high_row)
+
+        hint = Gtk.Label(
+            label="80% is recommended. Lower = longer battery life,\n"
+                  "less usable capacity when unplugged.",
+            xalign=0,
+        )
+        hint.get_style_context().add_class("dim-label")
+        box.add(hint)
 
         enabled_check = Gtk.CheckButton(label="Daemon enabled")
         enabled_check.set_active(s["enabled"])
@@ -280,17 +259,13 @@ class TrayApp:
         dlg.show_all()
         response = dlg.run()
         if response == Gtk.ResponseType.OK:
-            low = int(low_spin.get_value())
             high = int(high_spin.get_value())
             want_enabled = enabled_check.get_active()
-            if low >= high:
-                self._error("Low threshold must be less than high threshold.")
-            else:
-                update_config_file({"low": low, "high": high})
-                if want_enabled:
-                    systemctl("restart" if s["enabled"] else "start")
-                elif s["enabled"]:
-                    systemctl("stop")
+            update_config_file({"high": high})
+            if want_enabled:
+                systemctl("restart" if s["enabled"] else "start")
+            elif s["enabled"]:
+                systemctl("stop")
         dlg.destroy()
         self.refresh()
 
